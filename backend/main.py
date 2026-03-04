@@ -9,7 +9,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",          # สำหรับเทสในเครื่อง
+        "https://thai-stock-web-app.vercel.app"  # ใส่ URL ของหน้าเว็บ Vercel ของคุณ
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
