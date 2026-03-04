@@ -8,7 +8,7 @@ function App() {
 
 const fetchData = async () => {
     try {
-      const res = await axios.get('http://127.0.0.1:8000/api/stocks');
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/stocks`);
       setStocks(res.data);
       setLoading(false);
     } catch (err) {
