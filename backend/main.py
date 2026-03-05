@@ -5,6 +5,18 @@ from datetime import datetime
 import time
 import os
 import pytz # แนะนำให้ลงเพิ่ม: pip install pytz เพื่อล็อคเวลาไทย
+import os
+import google.generativeai as genai
+
+# 1. โหลด API Key (ควรตั้งไว้ใน Environment ของ Render)
+api_key = os.environ.get("GEMINI_API_KEY")
+
+# 2. ตั้งค่าการเชื่อมต่อกับ Google
+genai.configure(api_key=api_key)
+
+# 3. สร้างตัวแปร model (นี่คือที่มาของมันครับ!)
+# เราเลือกใช้รุ่น gemini-2.0-flash เพราะเร็วและราคาประหยัดที่สุด
+model = genai.GenerativeModel('gemini-3.1-pro-preview')
 
 app = FastAPI()
 
@@ -95,6 +107,28 @@ async def get_all_stocks(symbols: str = "PTT,CPALL,AOT,KBANK,DELTA"):
             if sym in stock_cache: results.append(stock_cache[sym]["data"])
 
     return results
+
+# backend/main.py เพิ่มส่วนนี้เข้าไป
+@app.post("/api/ai-analyze")
+async def analyze_market(data: list):
+    stock_summary = "\n".join([f"{s['symbol']}: {s['price']} ({s['pct']})" for s in data])
+    
+    # ปรับ Prompt ให้ดึงพลัง Agent ของ 3.1 ออกมา
+    prompt = f"""
+    วิเคราะห์พอร์ตหุ้นไทยแบบ Agentic Analysis:
+    {stock_summary}
+    
+    ภารกิจ:
+    1. ระบุ 'Alpha Stock' (ตัวที่เด่นที่สุด) พร้อมเหตุผลเชิงเทคนิค
+    2. ประเมินความเสี่ยงพอร์ตโดยรวม (Risk Assessment)
+    3. แนะนำ Action Plan: Buy, Hold, หรือ Liquidate รายตัว
+    
+    ตอบเป็น Markdown ภาษาไทยที่อ่านง่ายและดูเป็นมืออาชีพ
+    """
+    
+    response = await model.generate_content_async(prompt)
+    return {"analysis": response.text}
+    
 
 if __name__ == "__main__":
     import uvicorn
