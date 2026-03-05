@@ -71,8 +71,21 @@ function App() {
   );
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: 'white', padding: '20px', fontFamily: "'Inter', sans-serif", overflowX: 'hidden' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ 
+    minHeight: '100vh', 
+    width: '100%',             // พื้นหลังเต็มความกว้างหน้าจอ 100%
+    backgroundColor: '#0f172a', 
+    overflowX: 'hidden'       // ป้องกันแถบขาวด้านขวา
+    }}>
+      
+      {/* Container ชั้นใน: บีบเนื้อหาไว้ตรงกลาง */}
+      <div style={{ 
+        maxWidth: '1200px',      // บีบเนื้อหาไว้ไม่ให้แผ่กว้างเกินไป (สวยงาม)
+        margin: '0 auto',        // <<-- **สำคัญมาก** เพื่อจัดให้เนื้อหาอยู่ตรงกลาง **
+        padding: '40px 20px',    // เว้นระยะขอบในนิดหน่อย
+        width: '100%',
+        boxSizing: 'border-box'
+      }}>
         
         {/* Header & Market Status */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px', flexWrap: 'wrap', gap: '20px' }}>
