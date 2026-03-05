@@ -1,5 +1,5 @@
 fastapi
 uvicorn
 yfinance
-google-generativeai
 pytz
+google-generativeai>=0.8.3

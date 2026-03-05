@@ -11,8 +11,24 @@ import google.generativeai as genai
 api_key = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
-# 2. ปรับเป็นรุ่น Gemini 3 Flash ตามที่คุณต้องการ (เร็วและเสถียรที่สุด)
-model = genai.GenerativeModel('gemini-1.5-flash') 
+def initialize_gemini():
+    # รายชื่อรุ่นที่ต้องการใช้ เรียงตามลำดับความเทพ
+    # ในปี 2026 'gemini-2.0-flash-exp' คือตัวยอดนิยม
+    candidates = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-pro']
+    
+    for model_name in candidates:
+        try:
+            m = genai.GenerativeModel(model_name)
+            # ทดสอบเรียกสั้นๆ (ส่งแค่ 1 token) เพื่อเช็คว่า 404 ไหม
+            m.generate_content("ping", generation_config={"max_output_tokens": 1})
+            print(f"✅ Successfully initialized: {model_name}")
+            return m
+        except Exception as e:
+            print(f"❌ Failed to load {model_name}: {str(e)}")
+            continue
+    return None
+
+model = initialize_gemini()
 
 app = FastAPI()
 
@@ -77,6 +93,8 @@ async def get_all_stocks(symbols: str = "PTT,CPALL,AOT,KBANK,DELTA"):
 # แก้ไขฟังก์ชันวิเคราะห์ให้ใช้ Body(...) เพื่อความชัวร์ในการรับ List
 @app.post("/api/ai-analyze")
 async def analyze_market(data: list = Body(...)):
+    if not model:
+        return {"analysis": "ระบบ AI ไม่พร้อมใช้งาน (Model Initialization Failed)"}
     try:
         # เตรียมข้อมูลหุ้นให้ AI
         stock_summary = "\n".join([f"- {s['symbol']}: ราคา {s['price']} ({s['pct']})" for s in data])
