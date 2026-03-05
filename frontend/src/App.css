@@ -1,10 +1,23 @@
+/* ล้างค่าเริ่มต้นที่ทำให้หน้าจอโดนบีบ */
 #root {
   width: 100%;
   margin: 0;
   padding: 0;
-  text-align: center;
+  min-height: 100vh;
+  background-color: #0f172a; /* สีพื้นหลังเดียวกับแอป */
 }
-
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* ป้องกันการเลื่อนซ้าย-ขวาที่ทำให้เห็นแถบขาว */
+}
+/* ตัวครอบเนื้อหาหลัก */
+.app-container {
+  padding: 20px;
+  max-width: 1400px; /* ขยายให้กว้างขึ้น */
+  margin: 0 auto;
+  position: relative; /* เพื่อให้ Market Status อ้างอิงตำแหน่งจากตรงนี้ */
+}
 .logo {
   height: 6em;
   padding: 1.5em;

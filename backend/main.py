@@ -53,15 +53,15 @@ def get_ai_decision(change_pct):
     return "HOLD"
 
 @app.get("/api/stocks")
-async def get_all_stocks():
-    symbols = ["PTT", "CPALL", "AOT", "KBANK", "DELTA"]
+async def get_all_stocks(symbols: str = "PTT,CPALL,AOT,KBANK,DELTA"):
+    # รับค่า symbols จาก URL เช่น /api/stocks?symbols=PTT,OR
+    symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+    
     results = []
     current_time = time.time()
-    
-    # ดึงค่า Cache Expire ที่เหมาะสมกับช่วงเวลานั้นๆ
     cache_expire = get_dynamic_cache_time()
 
-    for sym in symbols:
+    for sym in symbol_list:
         # เช็ค Cache รายตัว โดยใช้ค่า expire ที่คำนวณมา
         if sym in stock_cache and (current_time - stock_cache[sym]["last_fetch"] < cache_expire):
             results.append(stock_cache[sym]["data"])
