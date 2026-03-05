@@ -33,21 +33,48 @@ function App() {
   }, [fetchData]);
 
   // 3. ฟังก์ชันเพิ่ม/ลดหุ้น
-  const addStock = () => {
+  const addStock = async () => {
     const sym = newSymbol.trim().toUpperCase();
-    if (sym && !symbolList.includes(sym)) {
-      const newList = [...symbolList, sym];
-      setSymbolList(newList);
-      localStorage.setItem('myStocks', JSON.stringify(newList));
-      setNewSymbol("");
-      setLoading(true); // แสดง Loading แป๊บหนึ่งเพื่อโหลดข้อมูลตัวใหม่
+    
+    if (!sym) return;
+
+    // 1. เช็คว่ามีในลิสต์เดิมอยู่แล้วหรือไม่
+    if (symbolList.includes(sym)) {
+      alert("หุ้นตัวนี้มีอยู่ในรายการแล้วครับ");
+      return;
+    }
+
+    setLoading(true); // เริ่มโหลดเพื่อเช็คข้อมูล
+    try {
+      // ลองดึงข้อมูลเฉพาะหุ้นตัวที่จะเพิ่ม
+      const res = await axios.get(`https://thai-stock-web-app.onrender.com/api/stocks?symbols=${sym}`);
+      
+      // 2. เช็คว่า API คืนค่าข้อมูลหุ้นตัวนั้นมาหรือไม่ (เช็คราคาหรือชื่อ)
+      if (res.data && res.data.length > 0 && res.data[0].price !== "N/A") {
+        const newList = [...symbolList, sym];
+        setSymbolList(newList);
+        localStorage.setItem('myStocks', JSON.stringify(newList));
+        setNewSymbol("");
+      } else {
+        // 3. ถ้าไม่เจอข้อมูล ให้แจ้งเตือน
+        alert(`ไม่พบข้อมูลหุ้นชื่อ "${sym}" กรุณาตรวจสอบชื่อย่อหุ้นอีกครั้ง (เช่น PTT, CPALL)`);
+      }
+    } catch (err) {
+      console.error("Search Error", err);
+      alert("เกิดข้อผิดพลาดในการค้นหาข้อมูลหุ้น");
+    } finally {
+      setLoading(false);
     }
   };
-
   const removeStock = (symToRemove) => {
-    const newList = symbolList.filter(s => s !== symToRemove);
-    setSymbolList(newList);
-    localStorage.setItem('myStocks', JSON.stringify(newList));
+    // สร้าง Pop-up ถามยืนยัน
+    const isConfirmed = window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบหุ้น ${symToRemove} ออกจากรายการ?`);
+    
+    if (isConfirmed) {
+      const newList = symbolList.filter(s => s !== symToRemove);
+      setSymbolList(newList);
+      localStorage.setItem('myStocks', JSON.stringify(newList));
+    }
   };
 
   // --- Logic เดิม (getMarketStatus, getStatusColor) ก๊อปปี้จากของเก่ามาวางได้เลย ---
