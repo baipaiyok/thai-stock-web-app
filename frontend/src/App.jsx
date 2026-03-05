@@ -5,6 +5,7 @@ import { TrendingUp, TrendingDown, Activity, RefreshCw } from 'lucide-react';
 function App() {
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
 const fetchData = async () => {
     try {
@@ -18,9 +19,25 @@ const fetchData = async () => {
 
 useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 10000); // อัปเดตทุก 10 วินาที
-    return () => clearInterval(interval);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
+  const getMarketStatus = () => {
+  const now = currentTime;
+  const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+  const timeStr = now.getHours() * 100 + now.getMinutes(); // เช่น 10:30 -> 1030
+
+  // เช็คว่าเป็นวันหยุดเสาร์-อาทิตย์ไหม
+  if (day === 0 || day === 6) return { label: "MARKET CLOSED", color: "#ef4444" };
+
+  // ช่วงเช้า: 10:00 - 12:30 | ช่วงบ่าย: 14:30 - 16:30
+  const isOpen = (timeStr >= 1000 && timeStr <= 1230) || (timeStr >= 1430 && timeStr <= 1630);
+  
+  if (isOpen) return { label: "MARKET OPEN", color: "#22c55e" };
+  return { label: "MARKET CLOSED", color: "#ef4444" };
+};
+
+const status = getMarketStatus();
 
   const getStatusColor = (decision) => {
     if (decision.includes("BUY")) return "#4ade80"; // เขียว
@@ -31,15 +48,25 @@ if (loading) return (
   <div style={{ 
     display: 'flex', 
     flexDirection: 'column',
-    height: '100vh', 
+    position: 'fixed', // ใช้ fixed เพื่อให้อยู่บนสุดและอ้างอิงกับหน้าจอ (Viewport)
+    top: 0,
+    left: 0,
+    width: '100vw',    // เต็มความกว้างหน้าจอ
+    height: '100vh',   // เต็มความสูงหน้าจอ
     justifyContent: 'center', 
     alignItems: 'center', 
     backgroundColor: '#0f172a', 
-    color: 'white' 
+    color: 'white',
+    zIndex: 9999       // มั่นใจว่าอยู่หน้าสุด ไม่โดนอะไรทับ
   }}>
     {/* เพิ่ม className เพื่อให้หมุน (ถ้าใช้ Tailwind) หรือใส่สไตล์หมุนเอง */}
-    <RefreshCw size={48} style={{ animation: 'spin 2s linear infinite' }} />
-    <p style={{ marginTop: '20px' }}>กำลังดึงข้อมูลหุ้นไทย...</p>
+   <RefreshCw size={48} style={{ animation: 'spin 2s linear infinite' }} />
+    <p style={{ marginTop: '20px', fontSize: '1.2rem', fontWeight: '500' }}>
+       กำลังดึงข้อมูลหุ้นไทย...
+    </p>
+    <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '10px' }}>
+       (Server กำลังตื่นจากการหลับพักผ่อน โปรดรอสักครู่...)
+    </p>
     
     {/* CSS สำหรับทำให้ไอคอนหมุน */}
     <style>{`
@@ -59,6 +86,50 @@ if (loading) return (
       fontFamily: "'Inter', sans-serif"
     }}>
       {/* Header */}
+      <div style={{
+        position: 'absolute',
+        top: '20px',
+        right: '20px',
+        textAlign: 'right',
+        fontFamily: 'monospace',
+        backgroundColor: 'rgba(30, 41, 59, 0.7)',
+        padding: '10px 15px',
+        borderRadius: '8px',
+        border: `1px solid ${status.color}`,
+        fontSize: '0.9rem'
+      }}>
+        <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '4px' }}>
+          {currentTime.toLocaleDateString('th-TH', { 
+            year: 'numeric', month: 'short', day: 'numeric' 
+          })}
+        </div>
+        <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>
+          {currentTime.toLocaleTimeString('th-TH')}
+        </div>
+        <div style={{ 
+          color: status.color, 
+          fontSize: '0.75rem', 
+          fontWeight: 'bold', 
+          marginTop: '5px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          gap: '5px'
+        }}>
+          <span style={{ 
+            width: '8px', 
+            height: '8px', 
+            backgroundColor: status.color, 
+            borderRadius: '50%',
+            display: 'inline-block',
+            boxShadow: `0 0 10px ${status.color}`
+          }}></span>
+          {status.label}
+        </div>
+        <div style={{ color: '#64748b', fontSize: '0.7rem', marginTop: '4px' }}>
+          SET: 10:00-12:30 | 14:30-16:30
+        </div>
+      </div>
       <div style={{ textAlign: 'center', marginBottom: '50px' }}>
         <h1 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '10px' }}>SET AI MONITOR</h1>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', color: '#38bdf8' }}>
