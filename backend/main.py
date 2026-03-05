@@ -12,7 +12,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",          # สำหรับเทสในเครื่อง
-        "https://thai-stock-web-app.vercel.app"  # ใส่ URL ของหน้าเว็บ Vercel ของคุณ
+        "https://thai-stock-web-app.vercel.app",  # ใส่ URL ของหน้าเว็บ Vercel ของคุณ
+        "https://thai-stock-web-cky24cnff-baipaiyoks-projects.vercel.app"
     ],
     allow_methods=["*"],
     allow_headers=["*"],
