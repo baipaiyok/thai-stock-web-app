@@ -12,7 +12,7 @@ api_key = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
 # 2. ปรับเป็นรุ่น Gemini 3 Flash ตามที่คุณต้องการ (เร็วและเสถียรที่สุด)
-model = genai.GenerativeModel('gemini-3-flash') 
+model = genai.GenerativeModel('gemini-1.5-flash') 
 
 app = FastAPI()
 
