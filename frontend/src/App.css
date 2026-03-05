@@ -1,15 +1,16 @@
-/* ล้างค่าเริ่มต้นที่ทำให้หน้าจอโดนบีบ */
+/* ลบทิ้งให้หมดแล้วแทนด้วยอันนี้ */
 #root {
-  width: 100%;
-  margin: 0;
-  padding: 0;
+  width: 100% !important;
+  max-width: 100% !important; /* ปลดล็อคจาก 1280px */
+  margin: 0 !important;
+  padding: 0 !important;
   min-height: 100vh;
-  background-color: #0f172a; /* สีพื้นหลังเดียวกับแอป */
+  background-color: #0f172a; /* บังคับสีพื้นหลังให้เต็มจอ */
 }
 body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden; /* ป้องกันการเลื่อนซ้าย-ขวาที่ทำให้เห็นแถบขาว */
+  overflow-x: hidden; /* ตัดแถบขาวด้านขวาทิ้งถาวร */
 }
 /* ตัวครอบเนื้อหาหลัก */
 .app-container {

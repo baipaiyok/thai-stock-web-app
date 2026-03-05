@@ -71,21 +71,19 @@ function App() {
   );
 
   return (
-    <div style={{ 
+   <div style={{ 
     minHeight: '100vh', 
-    width: '100%',             // พื้นหลังเต็มความกว้างหน้าจอ 100%
+    width: '100%', 
     backgroundColor: '#0f172a', 
-    overflowX: 'hidden'       // ป้องกันแถบขาวด้านขวา
+    padding: '40px 2vw', // ใช้ vw เพื่อให้ระยะขอบยืดหยุ่นตามหน้าจอ
+    boxSizing: 'border-box'
+  }}>
+    {/* ส่วนเนื้อหาหลัก */}
+    <div style={{ 
+      width: '100%', 
+      maxWidth: '1400px', // ขยายให้กว้างขึ้น หรือลบทิ้งถ้าอยากให้กว้างสุดๆ
+      margin: '0 auto'    // จัดกึ่งกลางหน้าจอ
     }}>
-      
-      {/* Container ชั้นใน: บีบเนื้อหาไว้ตรงกลาง */}
-      <div style={{ 
-        maxWidth: '1200px',      // บีบเนื้อหาไว้ไม่ให้แผ่กว้างเกินไป (สวยงาม)
-        margin: '0 auto',        // <<-- **สำคัญมาก** เพื่อจัดให้เนื้อหาอยู่ตรงกลาง **
-        padding: '40px 20px',    // เว้นระยะขอบในนิดหน่อย
-        width: '100%',
-        boxSizing: 'border-box'
-      }}>
         
         {/* Header & Market Status */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px', flexWrap: 'wrap', gap: '20px' }}>
@@ -116,8 +114,12 @@ function App() {
         </div>
 
         {/* Stock Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-          {stocks.map((stock) => (
+        <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', // การ์ดจะขยายเต็มพื้นที่ที่มี
+                gap: '24px'
+              }}>
+          {stocks.map(stock => (
             <div key={stock.symbol} style={{ backgroundColor: '#1e293b', borderRadius: '24px', padding: '25px', border: '1px solid #334155', position: 'relative' }}>
               
               {/* ปุ่มลบหุ้น */}
