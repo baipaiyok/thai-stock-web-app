@@ -1,5 +1,5 @@
 import yfinance as yf
-from fastapi import FastAPI, Body # เพิ่ม Body เข้ามา
+from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import time
@@ -7,34 +7,55 @@ import os
 import pytz
 import google.generativeai as genai
 
-# 1. โหลด API Key
+# 1. โหลด API Key และตั้งค่าพื้นฐาน
 api_key = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
 def initialize_gemini():
-    # รายชื่อรุ่นที่ต้องการใช้ เรียงตามลำดับความเทพ
-    # ในปี 2026 'gemini-2.0-flash-exp' คือตัวยอดนิยม
-    candidates = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-pro']
-    
-    for model_name in candidates:
-        try:
-            m = genai.GenerativeModel(model_name)
-            # ทดสอบเรียกสั้นๆ (ส่งแค่ 1 token) เพื่อเช็คว่า 404 ไหม
-            m.generate_content("ping", generation_config={"max_output_tokens": 1})
-            print(f"✅ Successfully initialized: {model_name}")
-            return m
-        except Exception as e:
-            print(f"❌ Failed to load {model_name}: {str(e)}")
-            continue
+    """ระบบค้นหาโมเดลที่ Key นี้มีสิทธิ์ใช้จริง เพื่อป้องกัน 404"""
+    print("🔍 Scanning for available models...")
+    try:
+        # ดึงรายชื่อโมเดลทั้งหมดที่รองรับ generateContent
+        available_models = [
+            m.name for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods
+        ]
+        print(f"📋 Available on your Key: {available_models}")
+
+        # ลำดับความสำคัญที่ต้องการใช้ (ตัด prefix models/ ออกเพื่อให้ SDK จัดการเอง)
+        priority = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-pro']
+        
+        for target in priority:
+            # ตรวจเช็คว่าชื่อโมเดลนี้อยู่ใน List ที่ใช้ได้จริงไหม
+            full_name = f"models/{target}"
+            if full_name in available_models or target in available_models:
+                try:
+                    m = genai.GenerativeModel(target)
+                    # ทดสอบ Ping
+                    m.generate_content("ping", generation_config={"max_output_tokens": 1})
+                    print(f"✅ Selected Model: {target}")
+                    return m
+                except:
+                    continue
+        
+        # ถ้าหาไม่เจอจริงๆ ให้ใช้ตัวแรกที่ List ได้
+        if available_models:
+            fallback = available_models[0].replace("models/", "")
+            print(f"⚠️ Using Fallback: {fallback}")
+            return genai.GenerativeModel(fallback)
+            
+    except Exception as e:
+        print(f"❌ Critical Error listing models: {str(e)}")
     return None
 
+# สร้าง Instance ของ Model ไว้รอรับงาน
 model = initialize_gemini()
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # ปรับเป็น * ชั่วคราวเพื่อให้เทสได้ทุก URL ของ Vercel
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -90,13 +111,16 @@ async def get_all_stocks(symbols: str = "PTT,CPALL,AOT,KBANK,DELTA"):
             if sym in stock_cache: results.append(stock_cache[sym]["data"])
     return results
 
-# แก้ไขฟังก์ชันวิเคราะห์ให้ใช้ Body(...) เพื่อความชัวร์ในการรับ List
 @app.post("/api/ai-analyze")
 async def analyze_market(data: list = Body(...)):
+    # Re-check model inside request if not initialized
+    global model
     if not model:
-        return {"analysis": "ระบบ AI ไม่พร้อมใช้งาน (Model Initialization Failed)"}
+        model = initialize_gemini()
+        if not model:
+            return {"analysis": "ระบบ AI ไม่พร้อมใช้งานในขณะนี้ (Initialization Failed)"}
+            
     try:
-        # เตรียมข้อมูลหุ้นให้ AI
         stock_summary = "\n".join([f"- {s['symbol']}: ราคา {s['price']} ({s['pct']})" for s in data])
         
         prompt = f"""
@@ -112,10 +136,11 @@ async def analyze_market(data: list = Body(...)):
         ตอบเป็นภาษาไทย ใช้ Markdown จัดหัวข้อให้สวยงามและอ่านง่าย
         """
         
-        response = await model.generate_content_async(prompt)
+        # ใช้เรียกผ่าน model.generate_content โดยตรง (ไม่ต้อง async ก็ได้ในเคสนี้เพื่อความชัวร์)
+        response = model.generate_content(prompt)
         return {"analysis": response.text}
     except Exception as e:
-        print(f"AI ERROR: {str(e)}") # ดู Error ใน Logs ของ Render
+        print(f"AI ERROR: {str(e)}")
         return {"analysis": f"AI ไม่สามารถวิเคราะห์ได้ในขณะนี้ (Error: {str(e)})"}
 
 if __name__ == "__main__":
