@@ -29,15 +29,27 @@ model = initialize_gemini()
 
 # --- 2. ตั้งค่า Settrade Sandbox (baipaiyo-E) ---
 try:
+    app_id = os.environ.get("SETTRADE_APP_ID")
+    app_secret = os.environ.get("SETTRADE_APP_SECRET")
+    account_no = os.environ.get("SETTRADE_ACCOUNT_NO")
+
+    # ตรวจสอบว่าดึงค่าจาก Environment ได้จริงไหม
+    if not all([app_id, app_secret, account_no]):
+        print("❌ Missing Environment Variables!")
+    
     investor = Investor(
-        app_id=os.environ.get("SETTRADE_APP_ID"),
-        app_secret=os.environ.get("SETTRADE_APP_SECRET"),
+        app_id=app_id,
+        app_secret=app_secret,
         is_sandbox=True
     )
-    # เชื่อมต่อกับพอร์ต baipaiyo-E
-    equity = investor.Equity(account_no=os.environ.get("SETTRADE_ACCOUNT_NO"))
-    print("✅ Settrade Sandbox Connected: baipaiyo-E")
+    equity = investor.Equity(account_no=account_no)
+    
+    # ทดสอบดึงสถานะทันทีเพื่อเช็คว่า Key ถูกต้องไหม
+    test_status = equity.get_account_status()
+    print(f"✅ Settrade Connected Successfully: {account_no}")
+
 except Exception as e:
+    # พิมพ์ Error แบบเต็มๆ ออกมาดูใน Log ของ Render
     print(f"❌ Settrade Connection Failed: {str(e)}")
     equity = None
 
