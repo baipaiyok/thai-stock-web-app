@@ -12,6 +12,8 @@ function App() {
   const [newSymbol, setNewSymbol] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  // เพิ่ม State สำหรับเก็บข้อมูลบัญชี
+  const [accountInfo, setAccountInfo] = useState({ account_no: 'Loading...', line_available: 0 });
   
   // Trade Modal State
   const [showTradeModal, setShowTradeModal] = useState(false);
@@ -41,17 +43,42 @@ function App() {
     } catch (err) { console.error("Portfolio Fetch Error", err); }
   }, []);
 
+  // ฟังก์ชันดึงข้อมูลบัญชีแบบ Dynamic
+  const fetchAccount = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/account-summary`);
+      if (res.data.status === "success") {
+        // ดึงค่า line_available (เงินที่ซื้อได้) และ account_no มาโชว์
+        setAccountInfo(res.data.data[0]); 
+      }
+    } catch (err) { console.error("Account Fetch Error", err); }
+  }, []);
+
+  // เพิ่มเข้าไปใน useEffect
   useEffect(() => {
     fetchData();
     fetchPortfolio();
-    setLoading(false);
+    fetchAccount(); // ดึงข้อมูลบัญชีครั้งแรก
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-      fetchData(); // Update ราคาทุกวินาที/ตาม Cache
-    }, 30000);
+    }, 1000); // อัปเดตเวลาทุกวินาที
     return () => clearInterval(timer);
-  }, [fetchData, fetchPortfolio]);
-
+  }, [fetchData, fetchPortfolio, fetchAccount]);
+  // ฟังก์ชันเช็คสถานะตลาด (แบบละเอียด)
+  const getMarketStatus = () => {
+    const now = currentTime;
+    const day = now.getDay(); 
+    const timeStr = now.getHours() * 100 + now.getMinutes();
+    
+    if (day === 0 || day === 6) return { label: "MARKET CLOSED (Holiday)", color: "#ef4444" };
+    
+    const isMorning = timeStr >= 1000 && timeStr <= 1230;
+    const isAfternoon = timeStr >= 1430 && timeStr <= 1630;
+    
+    if (isMorning || isAfternoon) return { label: "MARKET OPEN", color: "#22c55e" };
+    return { label: "MARKET CLOSED (Break)", color: "#facc15" };
+  };
+  const marketStatus = getMarketStatus();
   // 3. ฟังก์ชันส่งคำสั่งเทรดไป Sandbox
   const handleTrade = async () => {
     try {
@@ -95,17 +122,28 @@ function App() {
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
+        // --- ส่วนการแสดงผล (JSX) ---
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
           <div>
-            <h1 style={{ fontSize: '2.5rem', fontWeight: '800', margin: 0 }}>SET AI TERMINAL</h1>
-            <div style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Wallet size={18} /> 
-              <span>Account: <strong>baipaiyo-E</strong> (Sandbox)</span>
+            <h1 style={{ fontSize: '2.2rem', fontWeight: '800', margin: 0 }}>SET AI TERMINAL</h1>
+            <div style={{ display: 'flex', gap: '15px', marginTop: '5px' }}>
+              <div style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Wallet size={16} />
+                <span>ID: <strong>{accountInfo.account_no}</strong></span>
+              </div>
+              <div style={{ color: '#4ade80', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <TrendingUp size={16} />
+                <span>Cash: <strong>฿{Number(accountInfo.line_available).toLocaleString()}</strong></span>
+              </div>
             </div>
           </div>
-          <div style={{ textAlign: 'right', padding: '15px', borderRadius: '16px', border: `1px solid ${status.color}`, backgroundColor: 'rgba(30, 41, 59, 0.5)' }}>
+          
+          {/* ส่วนเวลาเปิด-ปิดตลาดที่ขอกลับมา */}
+          <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{currentTime.toLocaleTimeString('th-TH')}</div>
-            <div style={{ color: status.color, fontSize: '0.8rem', fontWeight: 'bold' }}>● {status.label}</div>
+            <div style={{ color: marketStatus.color, fontSize: '0.85rem', fontWeight: 'bold' }}>
+              ● {marketStatus.label}
+            </div>
           </div>
         </div>
 

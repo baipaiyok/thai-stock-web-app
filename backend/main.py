@@ -116,6 +116,15 @@ async def place_order(symbol: str = Body(...), side: str = Body(...), volume: in
         return {"status": "success", "data": res}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+@app.get("/api/account-summary")
+async def get_account_summary():
+    if not equity: return {"status": "error", "message": "Settrade not connected"}
+    try:
+        # ดึงข้อมูลภาพรวมบัญชี (ชื่อบัญชี, เงินสด, วงเงิน)
+        summary = equity.get_account_status()
+        return {"status": "success", "data": summary}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/api/ai-analyze")
 async def analyze_market(data: list = Body(...)):
