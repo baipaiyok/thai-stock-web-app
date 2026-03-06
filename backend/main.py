@@ -6,53 +6,43 @@ import time
 import os
 import pytz
 import google.generativeai as genai
+from settrade_v2 import Investor # สำคัญ: ต้องมีใน requirements.txt
 
-# 1. โหลด API Key และตั้งค่าพื้นฐาน
+# --- 1. ตั้งค่า Gemini AI ---
 api_key = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 
 def initialize_gemini():
-    """ระบบค้นหาโมเดลที่ Key นี้มีสิทธิ์ใช้จริง เพื่อป้องกัน 404"""
-    print("🔍 Scanning for available models...")
+    """ระบบเลือก Model ที่ใช้งานได้จริง"""
     try:
-        # ดึงรายชื่อโมเดลทั้งหมดที่รองรับ generateContent
-        available_models = [
-            m.name for m in genai.list_models() 
-            if 'generateContent' in m.supported_generation_methods
-        ]
-        print(f"📋 Available on your Key: {available_models}")
-
-        # ลำดับความสำคัญที่ต้องการใช้ (ตัด prefix models/ ออกเพื่อให้ SDK จัดการเอง)
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         priority = ['gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-pro']
-        
         for target in priority:
-            # ตรวจเช็คว่าชื่อโมเดลนี้อยู่ใน List ที่ใช้ได้จริงไหม
-            full_name = f"models/{target}"
-            if full_name in available_models or target in available_models:
-                try:
-                    m = genai.GenerativeModel(target)
-                    # ทดสอบ Ping
-                    m.generate_content("ping", generation_config={"max_output_tokens": 1})
-                    print(f"✅ Selected Model: {target}")
-                    return m
-                except:
-                    continue
-        
-        # ถ้าหาไม่เจอจริงๆ ให้ใช้ตัวแรกที่ List ได้
-        if available_models:
-            fallback = available_models[0].replace("models/", "")
-            print(f"⚠️ Using Fallback: {fallback}")
-            return genai.GenerativeModel(fallback)
-            
-    except Exception as e:
-        print(f"❌ Critical Error listing models: {str(e)}")
+            if any(target in name for name in available_models):
+                m = genai.GenerativeModel(target)
+                m.generate_content("test", generation_config={"max_output_tokens": 1})
+                return m
+    except: pass
     return None
 
-# สร้าง Instance ของ Model ไว้รอรับงาน
 model = initialize_gemini()
 
-app = FastAPI()
+# --- 2. ตั้งค่า Settrade Sandbox (baipaiyo-E) ---
+try:
+    investor = Investor(
+        app_id=os.environ.get("SETTRADE_APP_ID"),
+        app_secret=os.environ.get("SETTRADE_APP_SECRET"),
+        is_sandbox=True
+    )
+    # เชื่อมต่อกับพอร์ต baipaiyo-E
+    equity = investor.Equity(account_no=os.environ.get("SETTRADE_ACCOUNT_NO"))
+    print("✅ Settrade Sandbox Connected: baipaiyo-E")
+except Exception as e:
+    print(f"❌ Settrade Connection Failed: {str(e)}")
+    equity = None
 
+# --- 3. FastAPI Setup ---
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -66,17 +56,11 @@ tz_thai = pytz.timezone('Asia/Bangkok')
 def get_dynamic_cache_time():
     now = datetime.now(tz_thai)
     current_time = now.strftime("%H:%M")
-    weekday = now.weekday()
-    if weekday > 4: return 3600
+    if now.weekday() > 4: return 3600
     is_market_open = ("09:30" <= current_time <= "13:00") or ("14:00" <= current_time <= "17:00")
     return 30 if is_market_open else 3600
 
-def get_ai_decision(change_pct):
-    if change_pct > 2.0: return "STRONG BUY"
-    if change_pct > 0.5: return "BUY"
-    if change_pct < -2.0: return "STRONG SELL"
-    if change_pct < -0.5: return "SELL"
-    return "HOLD"
+# --- 4. API Endpoints ---
 
 @app.get("/api/stocks")
 async def get_all_stocks(symbols: str = "PTT,CPALL,AOT,KBANK,DELTA"):
@@ -96,54 +80,54 @@ async def get_all_stocks(symbols: str = "PTT,CPALL,AOT,KBANK,DELTA"):
             prev_close = info.previous_close
             change = round(price - prev_close, 2)
             pct = round((change / prev_close) * 100, 2)
-
             data = {
                 "symbol": sym, "price": price,
                 "change": f"{'+' if change > 0 else ''}{change}",
                 "pct": f"{'+' if pct > 0 else ''}{pct}%",
-                "pct_val": pct, "decision": get_ai_decision(pct),
-                "timestamp": datetime.now(tz_thai).strftime("%H:%M:%S"),
-                "mode": "Active" if cache_expire == 30 else "Power Saving"
+                "timestamp": datetime.now(tz_thai).strftime("%H:%M:%S")
             }
             stock_cache[sym] = {"data": data, "last_fetch": current_time}
             results.append(data)
-        except Exception as e:
-            if sym in stock_cache: results.append(stock_cache[sym]["data"])
+        except: pass
     return results
+
+@app.get("/api/portfolio")
+async def get_portfolio():
+    """เช็คพอร์ต baipaiyo-E ว่ามีหุ้นอะไรบ้าง"""
+    if not equity: return {"status": "error", "message": "Settrade connection error"}
+    try:
+        return {"status": "success", "data": equity.get_portfolio()}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/trade")
+async def place_order(symbol: str = Body(...), side: str = Body(...), volume: int = Body(...)):
+    """ส่งคำสั่งซื้อขายจริงไป Sandbox (PIN 000000)"""
+    if not equity: return {"status": "error", "message": "Settrade connection error"}
+    try:
+        # ส่งคำสั่งราคาตลาด (Market Price) เพื่อให้ Match ทันที
+        res = equity.place_order(
+            symbol=f"{symbol.upper()}.BK",
+            side=side.upper(),
+            volume=volume,
+            price=0, # 0 = Market Price
+            pin="000000"
+        )
+        return {"status": "success", "data": res}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/api/ai-analyze")
 async def analyze_market(data: list = Body(...)):
-    # Re-check model inside request if not initialized
-    global model
-    if not model:
-        model = initialize_gemini()
-        if not model:
-            return {"analysis": "ระบบ AI ไม่พร้อมใช้งานในขณะนี้ (Initialization Failed)"}
-            
+    if not model: return {"analysis": "AI Model not ready"}
     try:
-        stock_summary = "\n".join([f"- {s['symbol']}: ราคา {s['price']} ({s['pct']})" for s in data])
-        
-        prompt = f"""
-        คุณคือ AI ผู้เชี่ยวชาญการวิเคราะห์หุ้นไทย (SET)
-        วิเคราะห์รายการหุ้นในพอร์ตต่อไปนี้:
-        {stock_summary}
-        
-        ภารกิจ:
-        1. ระบุ 'Alpha Stock' (ตัวที่เด่นที่สุดในลิสต์) พร้อมเหตุผลสั้นๆ
-        2. ประเมินความเสี่ยงพอร์ตโดยรวม
-        3. แนะนำ Action Plan: ซื้อ, ถือ, หรือ ขาย รายตัว
-        
-        ตอบเป็นภาษาไทย ใช้ Markdown จัดหัวข้อให้สวยงามและอ่านง่าย
-        """
-        
-        # ใช้เรียกผ่าน model.generate_content โดยตรง (ไม่ต้อง async ก็ได้ในเคสนี้เพื่อความชัวร์)
+        stock_summary = "\n".join([f"- {s['symbol']}: {s['price']} ({s['pct']})" for s in data])
+        prompt = f"คุณคือผู้เชี่ยวชาญหุ้นไทย วิเคราะห์หุ้นเหล่านี้: \n{stock_summary}\nแนะนำแนวทาง ซื้อ/ถือ/ขาย รายตัว"
         response = model.generate_content(prompt)
         return {"analysis": response.text}
     except Exception as e:
-        print(f"AI ERROR: {str(e)}")
-        return {"analysis": f"AI ไม่สามารถวิเคราะห์ได้ในขณะนี้ (Error: {str(e)})"}
+        return {"analysis": f"AI Error: {str(e)}"}
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000)) 
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
