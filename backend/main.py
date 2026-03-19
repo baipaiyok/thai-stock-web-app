@@ -33,23 +33,22 @@ try:
     app_secret = os.environ.get("SETTRADE_APP_SECRET")
     account_no = os.environ.get("SETTRADE_ACCOUNT_NO")
 
-    # ตรวจสอบว่าดึงค่าจาก Environment ได้จริงไหม
-    if not all([app_id, app_secret, account_no]):
-        print("❌ Missing Environment Variables!")
-    
+    # แนะนำให้ใช้ตัวเลือกแอป sandbox โดยตรง
     investor = Investor(
         app_id=app_id,
         app_secret=app_secret,
-        is_sandbox=True
+        is_sandbox=True  # ตรวจสอบว่าตรงกับแอปใน Console ของ Settrade
     )
+    
+    # ลองดึง equity โดยไม่ระบุ broker_id ก่อน ถ้าไม่ได้ให้ใส่ broker_id="SANDBOX"
     equity = investor.Equity(account_no=account_no)
     
-    # ทดสอบดึงสถานะทันทีเพื่อเช็คว่า Key ถูกต้องไหม
-    test_status = equity.get_account_status()
-    print(f"✅ Settrade Connected Successfully: {account_no}")
+    # ตรวจสอบการเชื่อมต่อ
+    print(f"✅ พยายามเชื่อมต่อบัญชี: {account_no}")
+    account_info = equity.get_account_status()
+    print(f"✅ เชื่อมต่อสำเร็จ!")
 
 except Exception as e:
-    # พิมพ์ Error แบบเต็มๆ ออกมาดูใน Log ของ Render
     print(f"❌ Settrade Connection Failed: {str(e)}")
     equity = None
 
